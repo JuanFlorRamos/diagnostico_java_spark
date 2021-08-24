@@ -23,7 +23,9 @@ public class Transformer extends Writer {
         df.printSchema();
 
         df = cleanData(df);
-        df = exampleWindowFunction(df);
+        df = rankoverWindowFunction(df);
+        df = potentialDivideByOverall(df);
+        df = filterPlayerCatAndPotentialVsOverall(df);
         df = columnSelection(df);
 
         // for show 100 records after your transformations and show the Dataset schema
@@ -37,10 +39,17 @@ public class Transformer extends Writer {
     private Dataset<Row> columnSelection(Dataset<Row> df) {
         return df.select(
                 shortName.column(),
-                overall.column(),
+                longName.column(),
+                age.column(),
                 heightCm.column(),
+                weightKg.column(),
+                nationality.column(),
+                clubName.column(),
+                overall.column(),
+                potential.column(),
                 teamPosition.column(),
-                catHeightByPosition.column()
+                playerCat.column(),
+                potentialVsOverall.column()
         );
     }
 
@@ -73,30 +82,63 @@ public class Transformer extends Writer {
     }
 
     /**
-     * @param df is a Dataset with players information (must have team_position and height_cm columns)
-     * @return add to the Dataset the column "cat_height_by_position"
+     * @param df is a Dataset with players information (must have nationality, team_position and overall columns)
+     * @return add to the Dataset the column "player_cat"
      * by each position value
-     * cat A for if is in 20 players tallest
-     * cat B for if is in 50 players tallest
-     * cat C for the rest
+     * cat A for if is in 3 players
+     * cat B for if is in 5 players
+     * cat C for if is in 10 players
+     * cat D for the rest
      */
-    private Dataset<Row> exampleWindowFunction(Dataset<Row> df) {
+    private Dataset<Row> rankoverWindowFunction(Dataset<Row> df) {
         WindowSpec w = Window
-                .partitionBy(teamPosition.column())
-                .orderBy(heightCm.column().desc());
+                .partitionBy(nationality.column(), teamPosition.column())
+                .orderBy(overall.column());
 
         Column rank = rank().over(w);
 
-        Column rule = when(rank.$less(10), "A")
-                .when(rank.$less(50), "B")
-                .otherwise("C");
+        Column rule = when(rank.$less(3), "A")
+                .when(rank.$less(5), "B")
+                .when(rank.$less(10), "C")
+                .otherwise("D");
 
-        df = df.withColumn(catHeightByPosition.getName(), rule);
+        df = df.withColumn(playerCat.getName(), rule);
 
         return df;
     }
 
 
+    /**
+     * @param df is a Dataset with players information (must have potential and overall columns)
+     * @return add to the Dataset the column "potential_vs_overall"
+     * by each overall value
+     * column potential divide by column overall
+     */
+    private Dataset<Row> potentialDivideByOverall(Dataset<Row> df) {
+        df = df.withColumn(potentialVsOverall.getName(), potential.column().divide(overall.column());
+
+        return df;
+    }
+
+    /**
+     * @param df
+     * @return a Dataset with filter transformation applied
+     * column player_cat in A , B
+     * or if column player_cat = C && potential_vs_overall > 1.15
+     * or if column player_cat = D && column potential_vs_overall > 1.25
+     */
+    private Dataset<Row> filterPlayerCatAndPotentialVsOverall(Dataset<Row> df) {
+
+        df = df.filter(
+                (playerCat.column() === "A" || playerCat.column() === "B").or(
+                        playerCat.column() === "C" && potentialVsOverall.column() > 1.15).or(
+                        playerCat.column() === "D" && potentialVsOverall.column() > 1.25
+                )
+
+        );
+
+        return df;
+    }
 
 
 }
