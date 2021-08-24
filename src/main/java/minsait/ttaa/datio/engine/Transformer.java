@@ -115,7 +115,7 @@ public class Transformer extends Writer {
      * column potential divide by column overall
      */
     private Dataset<Row> potentialDivideByOverall(Dataset<Row> df) {
-        df = df.withColumn(potentialVsOverall.getName(), potential.column().divide(overall.column());
+        df = df.withColumn(potentialVsOverall.getName(), potential.column().divide(overall.column()));
 
         return df;
     }
@@ -129,12 +129,11 @@ public class Transformer extends Writer {
      */
     private Dataset<Row> filterPlayerCatAndPotentialVsOverall(Dataset<Row> df) {
 
-        df = df.filter(
-                (playerCat.column() === "A" || playerCat.column() === "B").or(
-                        playerCat.column() === "C" && potentialVsOverall.column() > 1.15).or(
-                        playerCat.column() === "D" && potentialVsOverall.column() > 1.25
+        df = df.filter(playerCat.column().startsWith("A").or(playerCat.column().startsWith("B")).or(
+                        playerCat.column().startsWith("C").and(potentialVsOverall.column().gt(1.15))
+                ).or(
+                        playerCat.column().startsWith("D").and(potentialVsOverall.column().gt(1.25))
                 )
-
         );
 
         return df;
